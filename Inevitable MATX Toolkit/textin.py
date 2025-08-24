@@ -82,7 +82,7 @@ class TextParser:
             
         self.filepath = filepath
         
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
             content = f.read()
         
         sections = {}

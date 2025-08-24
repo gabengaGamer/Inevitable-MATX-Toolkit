@@ -116,7 +116,8 @@ def create_mesh_from_matx2(mesh_section, vertices_section, polygons_section, fac
     root_obj = bpy.data.objects.new(root_name, None)
     bpy.context.collection.objects.link(root_obj)
     
-    root_obj.rotation_euler = (math.radians(90), 0, math.radians(-90))
+    root_obj.rotation_mode = 'XYZ'
+    root_obj.rotation_euler = (math.radians(90), 0, 0)
     
     global sections
     sections = all_sections if all_sections else {}
@@ -650,7 +651,7 @@ def apply_weights(mesh_obj, global_to_local_vert_map, skin_section, bone_dict, a
     mod.use_vertex_groups = True
     
 #=============================================================================    
-    
+
 def build_mesh_geometry(created_meshes, vertex_dict, uv_dict, normal_dict, 
                       poly_material_dict, material_dict, bone_dict, 
                       armature_obj, skin_section):
@@ -725,7 +726,7 @@ def build_mesh_geometry(created_meshes, vertex_dict, uv_dict, normal_dict,
         blender_mesh.update()
         meshes_created += 1
     
-    return meshes_created    
+    return meshes_created
 
 #=============================================================================
 
@@ -815,13 +816,18 @@ def apply_normals(blender_mesh, normal_dict, reverse_vert_map):
         return
     
     report('INFO', "Applying custom normals")
-    blender_mesh.use_auto_smooth = True
-    blender_mesh.auto_smooth_angle = 3.14159
     
     try:
         blender_mesh.update()
-        
-        blender_mesh.calc_normals_split()
+
+        if bpy.app.version >= (4, 1, 0):
+            pass
+        else:
+            blender_mesh.use_auto_smooth = True
+            blender_mesh.auto_smooth_angle = 3.14159
+            blender_mesh.calc_normals_split()
+          
+        custom_normals = []
         
         for poly in blender_mesh.polygons:
             for loop_idx in range(poly.loop_start, poly.loop_start + poly.loop_total):
@@ -832,13 +838,26 @@ def apply_normals(blender_mesh, normal_dict, reverse_vert_map):
                 
                 if global_idx is not None and global_idx in normal_dict:
                     nx, ny, nz = normal_dict[global_idx]
-                    if hasattr(loop, 'normal'):
-                        loop.normal = (nx, ny, nz)
+                    custom_normals.append((nx, ny, nz))
+                else:
+                    if bpy.app.version >= (4, 1, 0):
+                        custom_normals.append(loop.normal[:])
+                    else:
+                        custom_normals.append(loop.normal[:])
+
+        if custom_normals:
+            blender_mesh.normals_split_custom_set(custom_normals)
         
         blender_mesh.validate(clean_customdata=False)
         blender_mesh.update()
+        
     except Exception as e:
         report('WARNING', f"Error while setting custom normals: {str(e)}")
-        blender_mesh.use_auto_smooth = False
-        
-#=============================================================================        
+
+        if bpy.app.version < (4, 1, 0):
+            blender_mesh.use_auto_smooth = False
+        try:
+            if hasattr(blender_mesh, 'free_normals_split'):
+                blender_mesh.free_normals_split()
+        except:
+            pass

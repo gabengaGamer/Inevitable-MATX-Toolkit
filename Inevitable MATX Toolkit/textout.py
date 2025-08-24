@@ -79,6 +79,10 @@ class TextWriter:
             self.fp.close()
             self.fp = None
     
+    def __del__(self):
+        if hasattr(self, 'fp') and self.fp:
+            self.close_file()
+    
     def add_header(self, header_name: str, count: int = -1) -> None:
         
         self.line_count = 1 if count < 0 else count

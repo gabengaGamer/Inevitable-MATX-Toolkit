@@ -289,7 +289,11 @@ def export_normals(writer, mesh_objects):
     vertex_index = 0
     for obj in mesh_objects:
         mesh = obj.data
-        mesh.calc_normals_split()
+        
+        if bpy.app.version >= (4, 1, 0):
+            pass
+        else:
+            mesh.calc_normals_split()
         
         world_matrix = obj.matrix_world
         rot_matrix = world_matrix.to_quaternion().to_matrix()
@@ -505,7 +509,7 @@ def export_polygons(writer, mesh_objects):
         
         bm = bmesh.new()
         bm.from_mesh(mesh)
-        bmesh.ops.triangulate(bm, faces=bm.faces)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method='BEAUTY', ngon_method='BEAUTY')
         
         face_count = len(bm.faces)
         total_triangles += face_count
@@ -551,7 +555,7 @@ def export_facet_index(writer, mesh_objects):
         mesh = obj.data  
         bm = bmesh.new()
         bm.from_mesh(mesh)
-        bmesh.ops.triangulate(bm, faces=bm.faces)
+        bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method='BEAUTY', ngon_method='BEAUTY')
         
         triangles_for_obj = []
         for face in bm.faces:
@@ -594,6 +598,7 @@ def export_facet_index(writer, mesh_objects):
 
 def export_materials(writer, materials):
     textures = []
+    textures_set = set()
     report('INFO', f"Processing {len(materials)} materials")
     
     for mat in materials:
@@ -601,7 +606,8 @@ def export_materials(writer, materials):
             mat_textures = []
             for node in mat.node_tree.nodes:
                 if node.type == 'TEX_IMAGE' and node.image:
-                    if node.image not in textures:
+                    if node.image not in textures_set:
+                        textures_set.add(node.image)
                         textures.append(node.image)
                         mat_textures.append(node.image.name)
             if mat_textures:
@@ -814,7 +820,7 @@ def pre_process_mesh_for_export(mesh_objects):
                     face_normals = [face.normal for face in connected_faces]
                     if len(face_normals) >= 2:
                         angle = face_normals[0].angle(face_normals[1])
-                        if angle > 0.523599:  # ~30 degrees
+                        if angle > 0.523599:
                             is_sharp_edge = True
             
             if is_uv_seam:
@@ -831,7 +837,7 @@ def pre_process_mesh_for_export(mesh_objects):
             bmesh.ops.split_edges(bm, edges=all_edges_to_split)
         
         report('INFO', f"  Triangulating mesh")
-        result = bmesh.ops.triangulate(bm, faces=bm.faces[:])
+        result = bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method='BEAUTY', ngon_method='BEAUTY')
         report('INFO', f"  Triangulation created {len(result.get('faces', []))} triangular faces")
         
         bm.to_mesh(mesh)
@@ -841,7 +847,11 @@ def pre_process_mesh_for_export(mesh_objects):
         mesh.validate()
         
         report('INFO', f"  Final processed mesh: {len(mesh.vertices)} vertices, {len(mesh.polygons)} faces")
-        mesh.calc_normals_split()
+        
+        if bpy.app.version >= (4, 1, 0):
+            pass
+        else:
+            mesh.calc_normals_split()
         
         processed_objects.append(obj_copy)
     
