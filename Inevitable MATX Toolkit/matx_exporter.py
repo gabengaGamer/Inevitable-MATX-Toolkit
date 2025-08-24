@@ -91,14 +91,15 @@ def write_file_header(writer, filepath, mesh_objects, armature_objects=None):
 #==-------------------------------------    
 #=============================================================================
 
-def export_mesh_data(writer, mesh_objects):
+def export_mesh_data(writer, mesh_objects, name_mapping=None):
     writer.add_header("Mesh", len(mesh_objects))
     for idx, obj in enumerate(mesh_objects):
-        report('INFO', f"  Writing mesh index {idx}: '{obj.name}'")
-        writer.add_field("Index:d Name:s", idx, obj.name)
+        original_name = name_mapping.get(obj, obj.name) if name_mapping else obj.name
+        report('INFO', f"  Writing mesh index {idx}: '{original_name}'")
+        writer.add_field("Index:d Name:s", idx, original_name)
         writer.add_end_line()
     
-    report('INFO', "Mesh data export completed")               
+    report('INFO', "Mesh data export completed")             
 
 #=============================================================================
 
@@ -755,8 +756,8 @@ def export_material_maps(writer, materials):
 #=============================================================================
 
 def pre_process_mesh_for_export(mesh_objects):
-  
     processed_objects = []
+    name_mapping = {}
     
     for obj in mesh_objects:
         report('INFO', f"Pre-processing mesh '{obj.name}'")
@@ -765,6 +766,8 @@ def pre_process_mesh_for_export(mesh_objects):
         mesh_copy = obj.data.copy()
         obj_copy.data = mesh_copy
         obj_copy.name = obj.name + "_export"
+        
+        name_mapping[obj_copy] = obj.name
         
         bpy.context.collection.objects.link(obj_copy)
         report('INFO', f"  Created temporary object '{obj_copy.name}' for export")
@@ -843,7 +846,7 @@ def pre_process_mesh_for_export(mesh_objects):
         processed_objects.append(obj_copy)
     
     report('INFO', f"Pre-processing completed, created {len(processed_objects)} processed meshes")
-    return processed_objects
+    return processed_objects, name_mapping
 
 #=============================================================================
 
@@ -859,7 +862,7 @@ def export_matx_file(filepath, context):
     
     writer = None
     try:
-        processed_mesh_objects = pre_process_mesh_for_export(mesh_objects)
+        processed_mesh_objects, name_mapping = pre_process_mesh_for_export(mesh_objects)
         
         temp_object_names = [obj.name for obj in processed_mesh_objects if obj.name.endswith("_export")]
         
@@ -869,7 +872,7 @@ def export_matx_file(filepath, context):
         resources = write_file_header(writer, filepath, processed_mesh_objects, armature_objects)
         materials = resources.get("materials", [])
         
-        export_mesh_data(writer, processed_mesh_objects)
+        export_mesh_data(writer, processed_mesh_objects, name_mapping)
         
         export_hierarchy(writer, processed_mesh_objects, armature_objects)
         
@@ -912,6 +915,6 @@ def export_matx_file(filepath, context):
                     if mesh_data and mesh_data.users == 0:
                         bpy.data.meshes.remove(mesh_data)
         except Exception as e:
-            report('WARNING', f"Error clearing temporary objects: {str(e)}")
+            report('WARNING', f"Error clearing temporary objects: {str(e)}")    
             
-#=============================================================================            
+#=============================================================================             

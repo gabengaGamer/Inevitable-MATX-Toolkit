@@ -11,6 +11,7 @@ from mathutils import Vector, Matrix, Quaternion
 
 VISUALIZATION_TAG = "matx_rb_visualization"
 PARENT_TAG = "matx_rb_parent"
+_panel_function = None
 
 from . import matx_exporter
 
@@ -423,8 +424,7 @@ def add_buttons_to_panel():
             box.label(text="Auto Sizing")
             box.operator("matx.fit_rigidbody_to_mesh", icon='FULLSCREEN_ENTER')
     
-    if hasattr(bpy.types, 'MATX_PT_RigidBodyPanel'):
-        bpy.types.MATX_PT_RigidBodyPanel.append(add_buttons)
+    return add_buttons
 
 #=========================================================================     
         
@@ -444,10 +444,15 @@ def on_file_save(dummy):
 #=========================================================================         
 
 def register():
+    global _panel_function
+    
     bpy.utils.register_class(MATX_OT_create_rigidbody_visualization)
     bpy.utils.register_class(MATX_OT_remove_rigidbody_visualization)
     bpy.utils.register_class(MATX_OT_fit_rigidbody_to_mesh)
-    add_buttons_to_panel()
+    
+    _panel_function = add_buttons_to_panel()
+    if hasattr(bpy.types, 'MATX_PT_RigidBodyPanel'):
+        bpy.types.MATX_PT_RigidBodyPanel.append(_panel_function)
     
     bpy.app.handlers.load_post.append(on_file_load)
     bpy.app.handlers.save_pre.append(on_file_save)
@@ -457,13 +462,7 @@ def register():
 
 #=========================================================================   
 
-def unregister():
-    if hasattr(bpy.types, 'MATX_PT_RigidBodyPanel'):
-        for fn in bpy.types.MATX_PT_RigidBodyPanel._append:
-            if fn.__name__ == 'add_buttons':
-                bpy.types.MATX_PT_RigidBodyPanel.remove(fn)
-                break
-    
+def unregister(): 
     if on_object_removed in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(on_object_removed)
     
